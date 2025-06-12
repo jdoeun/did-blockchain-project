@@ -1,0 +1,83 @@
+<!-- src/main/resources/templates/index.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DID Credential 등록 및 검증</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+<h1>🪪 미성년자 Credential 등록</h1>
+
+<form id="registerForm">
+  <label>이름: <input type="text" id="name" name="name" /></label><br />
+  <label>생년월일(yyyy-mm-dd): <input type="text" id="birth" name="birth" /></label><br />
+  <button type="submit">등록하기</button>
+</form>
+
+<hr />
+<div id="qrSection" style="display:none;">
+  <h2>📎 생성된 Credential</h2>
+  <p id="credHash"></p>
+  <img id="qrImage" src="" alt="QR 이미지" />
+</div>
+
+<hr />
+<h1>🔍 QR 업로드로 Credential 검증</h1>
+<form id="verifyForm">
+  <label>QR 이미지 선택: <input type="file" id="qrFile" accept="image/*" /></label><br />
+  <button type="submit">검증하기</button>
+</form>
+
+<div id="verifyResult"></div>
+
+<script>
+  document.getElementById("registerForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value;
+    const birth = document.getElementById("birth").value;
+
+    try {
+      const res = await axios.post("/did/register", { name, birth });
+
+      document.getElementById("qrSection").style.display = "block";
+      document.getElementById("credHash").innerText = "Credential Hash: " + res.data.credentialHash;
+      document.getElementById("qrImage").src = "data:image/png;base64," + res.data.qrImageBase64;
+
+    } catch (err) {
+      alert("등록 실패: " + err);
+    }
+  });
+
+  document.getElementById("verifyForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const file = document.getElementById("qrFile").files[0];
+        if (!file) {
+          alert("QR 이미지를 업로드하세요.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const res = await axios.post("/did/verify-by-qr", formData, {
+            headers: { "Content-Type": "multipart/form-data" }
+          });
+
+          const data = res.data;
+          document.getElementById("verifyResult").innerHTML =
+              `<p>${data.valid ? "✅ 유효한 Credential" : "❌ 위조된 Credential"}</p>
+               <p>${data.underAge ? "⚠️ 미성년자입니다" : "🟢 성인입니다"}</p>`;
+        } catch (err) {
+          alert("검증 실패: " + err);
+        }}
+
+      }
+  );
+</script>
+</body>
+</html>
+
